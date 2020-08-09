@@ -203,9 +203,41 @@ class Metric:
 
     def ExtractMetrics(self):
         self.seq_len = int(self.pd_df['CONS_LEN'].values[0])
+        self.perc_N = self.pd_df['PERC_N'].values[0]
+        self.perc_GC = self.pd_df['PERC_GC'].values[0]
+        self.mean_cov = self.pd_df['BAM_MEAN_COV'].values[0]
+        self._50x_cov = self.pd_df['BAM_PERC_50X'].values[0] 
+        self._100x_cov = self.pd_df['BAM_PERC_100X'].values[0]
+        self._250x_cov = self.pd_df['BAM_PERC_250X'].values[0]
+        self._500x_cov = self.pd_df['BAM_PERC_500X'].values[0]
+        self._1000x_cov = self.pd_df['BAM_PERC_1000X'].values[0]
+        
+    def Get1000xCov(self):
+        return(self._1000x_cov)
+
+    def Get500xCov(self):
+        return(self._500x_cov)
+
+    def Get250xCov(self):
+        return(self._250x_cov)
+
+    def Get100xCov(self):
+        return(self._100x_cov)
+
+    def Get50xCov(self):
+        return(self._50x_cov)
+
+    def GetMeanCov(self):
+        return(self.mean_cov)
+
+    def GetPercGC(self):
+        return(self.perc_GC)
 
     def GetSeqLen(self):
         return(self.seq_len)
+
+    def GetPercN(self):
+        return(self.perc_N)
 
     def CreatePdDf(self):
         self.pd_df = pd.read_csv(self.path)
@@ -235,6 +267,20 @@ class Metric:
     def GetPdDf(self):
         return(self.pd_df)
 
+    @staticmethod
+    def GetPercN_Quality_Score(perc_N):
+        #TODO a determiner
+        if perc_N < 10:
+            return "Excellent"
+        elif perc_N > 10 and perc_N < 20:
+            return "Bon"
+        else:
+            return "Faible"
+
+    @staticmethod
+    def Get50xCov_Quality_Score(_50x_cov):
+        #TODO a determiner
+        pass 
 
 class Utils():
     
@@ -310,6 +356,30 @@ class MarkdownWriter(object):
 
 
     @classmethod
+    def GetQualityTable(cls,metric):
+        
+        title_line = "### Qualité\n"
+        header = "| Critères | Valeur | Qualité | Seuil |"
+        separator = "| :----: | :----: | :----: | :----: |"
+
+        perc_N_line = "| Pourcentage de bases indéterminées | {perc_n} | {qual_score} | {seuil} |".format(perc_n = "%.1f" % metric.GetPercN(),qual_score = Metric.GetPercN_Quality_Score(metric.GetPercN()),seuil = "]1% - 5%[")
+
+        perc_cov_50x =  "| Pourcentage de couverture à minimum 50X | {_50x_cov} | {qual_score} | {seuil} |".format(_50x_cov = "%.1f" % metric.Get50xCov(),qual_score = "a déterminer",seuil = "a déterminer")
+
+        perc_cov_100x =  "| Pourcentage de couverture à minimum 100X | {_100x_cov} | {qual_score} | {seuil} |".format(_100x_cov = "%.1f" % metric.Get100xCov(),qual_score = "a déterminer",seuil = "a déterminer")
+
+        perc_cov_250x =  "| Pourcentage de couverture à minimum 250X | {_250x_cov} | {qual_score} | {seuil} |".format(_250x_cov = "%.1f" % metric.Get250xCov(),qual_score = "a déterminer",seuil = "a déterminer")
+
+        perc_cov_500x =  "| Pourcentage de couverture à minimum 500X | {_500x_cov} | {qual_score} | {seuil} |".format(_500x_cov = "%.1f" % metric.Get500xCov(),qual_score = "a déterminer",seuil = "a déterminer")
+
+        perc_cov_1000x =  "| Pourcentage de couverture à minimum 1000X | {_1000x_cov} | {qual_score} | {seuil} |".format(_1000x_cov = "%.1f" % metric.Get1000xCov(),qual_score = "a déterminer",seuil = "a déterminer")
+
+        table = "{title}\n{header}\n{sep}\n{perc_n}\n{perc_cov_50x}\n{perc_cov_100x}\n{perc_cov_250x}\n{perc_cov_500x}\n{perc_cov_1000x}".format(title=title_line,header=header,sep=separator,perc_n=perc_N_line,perc_cov_50x=perc_cov_50x,perc_cov_100x=perc_cov_100x,perc_cov_250x=perc_cov_250x,perc_cov_500x=perc_cov_500x,perc_cov_1000x=perc_cov_1000x)
+
+        return(table) 
+
+
+    @classmethod
     def BuildSeqReport(cls,metric):
         sample_name = metric.GetSampleName()
         tech = metric.GetTech()
@@ -323,10 +393,11 @@ class MarkdownWriter(object):
         header = cls.GetHeader(sample_name)
         info = cls.GetInfo(metric)
         variant_table = cls.GetVariantTable(metric)
+        quality_table = cls.GetQualityTable(metric)
 
         rmd_file_name = sample_name + "_" + tech + "_" + seq_date_str + ".Rmd"
         rmd_out = os.path.join(cls.out_dir,rmd_file_name)
-        cls.WriteRmd(rmd_out,header,info,variant_table)
+        cls.WriteRmd(rmd_out,header,info,variant_table,quality_table)
 
         html_file_name = sample_name + "_" + tech + "_" + seq_date_str + ".html"
         html_out = os.path.join(cls.out_dir,html_file_name)
@@ -334,13 +405,18 @@ class MarkdownWriter(object):
         cls.WriteHtml(html_out,rmd_out)
 
     @classmethod
-    def WriteRmd(cls,out,header,info,variant_table):
+    def WriteRmd(cls,out,header,info,variant_table,quality_table):
         out_handler = open(out,'w')
         out_handler.write(header)
         out_handler.write("\n")
         out_handler.write(info)
         out_handler.write("\n")
+        out_handler.write("\n")
         out_handler.write(variant_table)
+        out_handler.write("\n")
+        out_handler.write("\n")
+        out_handler.write(quality_table)
+        out_handler.write("\n")
         out_handler.write("\n")
 
         out_handler.close()
