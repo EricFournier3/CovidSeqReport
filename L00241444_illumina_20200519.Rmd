@@ -1,0 +1,31 @@
+---
+title: "Rapport pour L00241444"
+author: "Sandrine Moreira"
+date: "2020-08-08"
+output: html_document
+---
+
+### Identifiant de l'échantillon : <span style="color:blue">L00241444<span> 
+### Date de collecte: <span style="color:blue"> a venir </span> 
+### Technologie de séquencage: <span style="color:blue">illumina</span> 
+### Date de séquencage: <span style="color:blue">Mardi le 19 May 2020</span> 
+### Longueur de séquence: <span style="color:blue">29903</span> 
+### Clade: <span style="color:blue">a venir</span> 
+
+### Variants
+
+| Position | Variation nucléotidique |Variation en acide aminé | Qualité |
+| :----: | :----: | :----: | :----: |
+| position | nuc_refPOSITIONnuc_var |aa_refPOSITIONaa_var | valeur de qualité |
+
+### Qualité
+
+| Critères | Valeur | Qualité | Seuil |
+| :----: | :----: | :----: | :----: |
+| Pourcentage de bases indéterminées | 0.3 | Excellent | ]1% - 5%[ |
+| Pourcentage de couverture à minimum 50X | 97.5 | a déterminer | a déterminer |
+| Pourcentage de couverture à minimum 100X | 95.3 | a déterminer | a déterminer |
+| Pourcentage de couverture à minimum 250X | 86.1 | a déterminer | a déterminer |
+| Pourcentage de couverture à minimum 500X | 73.1 | a déterminer | a déterminer |
+| Pourcentage de couverture à minimum 1000X | 41.8 | a déterminer | a déterminer |
+
