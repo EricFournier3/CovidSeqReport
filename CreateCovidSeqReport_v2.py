@@ -10,6 +10,7 @@ Eric Fournier
 - ajouter les metrics dans la MySQL
 - ne pas rouler ce script sur beluga => un script pour importer seulement les nom de plaque et csv
 => script bash ou modifier script sandrine pour creer seulement les metric.csv et ensuite on importe, ou scp on only specific extension
+- nom de mois en francais
 """
 
 
@@ -130,13 +131,14 @@ class Sample:
 
         self.AddNewMetric(spec_dir,date,tech)
 
-
     def AddNewMetric(self,spec_dir,date,tech):
         full_metric_path = os.path.join(PlateDirManager.GetBaseDir(_DEBUG),self.parent_plate.GetName(),spec_dir)
-        
+
         try:
             metric_file = glob.glob(full_metric_path + '/*metrics.csv')[0]
-            self.metric_manager.AddNewMetric(metric_file,date,tech) 
+            vcf_file = glob.glob(full_metric_path + '/*major.vcf')[0]
+            self.metric_manager.AddNewMetric(metric_file,vcf_file,date,tech) 
+            
         except Exception as e:
             print(sys.exc_info())
             logging.warning("Aucun metric dans " + full_metric_path)
@@ -150,6 +152,31 @@ class Sample:
     def BuildSeqReport(self):
         for metric in self.metric_manager.GetMetrics():
             MarkdownWriter.BuildSeqReport(metric)
+
+
+class VCF:
+    def __init__(self,metric,vcf_path):
+        self.metric = metric
+        self.vcf_path = vcf_path
+
+        self.var_dict = {}
+
+    def ExtractNucVariants(self):
+        vcf_handler = open(self.vcf_path)
+        
+        for line in vcf_handler:
+            if not line.startswith('#'):
+                var_info = line.split('\t')
+                var_pos = var_info[1]
+                ref_nuc = var_info[3]
+                var_nuc = var_info[4]
+                var_qual = var_info[6]
+                self.var_dict[int(var_pos)] = {'ref_nuc':ref_nuc,'var_nuc':var_nuc,'var_qual':var_qual}
+
+        vcf_handler.close()
+
+    def GetVar(self):
+        return(self.var_dict)
 
 
 class MetricsManager:
@@ -183,17 +210,18 @@ class MetricsManager:
 
         self.renamed_columns = {'mgi':mgi_col_renamed,'nanopore':nanopore_col_renamed,'illumina':illumina_col_renamed}
         
-    def AddNewMetric(self,full_metric_path,date,tech):
-        new_metric = Metric(self.sample,full_metric_path,date,tech,self.renamed_columns[tech])
+    def AddNewMetric(self,full_metric_path,full_vcf_path,date,tech):
+        new_metric = Metric(self.sample,full_metric_path,full_vcf_path,date,tech,self.renamed_columns[tech])
         self.metrics_list.append(new_metric)
 
     def GetMetrics(self):
         return self.metrics_list
 
 class Metric:
-    def __init__(self,sample,path,date,tech,renamed_columns):
+    def __init__(self,sample,metric_path,vcf_path,date,tech,renamed_columns):
         self.sample = sample
-        self.path = path
+        self.metric_path = metric_path
+        self.vcf = VCF(self,vcf_path)
         self.date = date
         self.tech = tech
         self.renamed_columns_map = renamed_columns
@@ -212,6 +240,9 @@ class Metric:
         self._500x_cov = self.pd_df['BAM_PERC_500X'].values[0]
         self._1000x_cov = self.pd_df['BAM_PERC_1000X'].values[0]
         
+    def ExtractNucVariants(self):
+        self.vcf.ExtractNucVariants()
+
     def Get1000xCov(self):
         return(self._1000x_cov)
 
@@ -240,7 +271,7 @@ class Metric:
         return(self.perc_N)
 
     def CreatePdDf(self):
-        self.pd_df = pd.read_csv(self.path)
+        self.pd_df = pd.read_csv(self.metric_path)
         self.RenameColumns()
 
     def RenameColumns(self):
@@ -344,13 +375,20 @@ class MarkdownWriter(object):
 
     @classmethod
     def GetVariantTable(cls,metric):
+        def AddVarLine(var):
+            return("| {0} | {1} | na | {2} |\n".format(str(var[0]),var[1]['ref_nuc']+str(var[0])+var[1]['var_nuc'],var[1]['var_qual']))
+
+        var_list = metric.vcf.GetVar()
 
         title_line = "### Variants\n"
         header = "| Position | Variation nucléotidique |Variation en acide aminé | Qualité |"
         separator = "| :----: | :----: | :----: | :----: |"
-        test_line = "| position | nuc_refPOSITIONnuc_var |aa_refPOSITIONaa_var | valeur de qualité |"
+        var_lines = ""
 
-        table = "{title}\n{header}\n{sep}\n{test}".format(title=title_line,header=header,sep=separator,test=test_line)
+        for var in sorted(var_list.items()):
+            var_lines += AddVarLine(var)
+
+        table = "{title}\n{header}\n{sep}\n{var_lines}".format(title=title_line,header=header,sep=separator,var_lines=var_lines)
 
         return(table)
 
@@ -389,6 +427,7 @@ class MarkdownWriter(object):
         today = datetime.today()
 
         metric.ExtractMetrics()
+        metric.ExtractNucVariants()
 
         header = cls.GetHeader(sample_name)
         info = cls.GetInfo(metric)
