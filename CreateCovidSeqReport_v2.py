@@ -26,7 +26,7 @@ import pandas as pd
 import re
 from datetime import datetime
 import glob
-
+from Covid19DB import MySQLcovid19,MySQLcovid19Selector
 
 
 _DEBUG = True
@@ -229,6 +229,7 @@ class Metric:
         self.CreatePdDf()
         self.GetSamplePdDf()
 
+
     def ExtractMetrics(self):
         self.seq_len = int(self.pd_df['CONS_LEN'].values[0])
         self.perc_N = self.pd_df['PERC_N'].values[0]
@@ -292,11 +293,18 @@ class Metric:
     def GetStrDate(self):
         english_day = self.date.strftime("%A")
         french_day = Utils.GetFrenchDay(english_day)
+        
+        english_month = self.date.strftime("%B")
+        french_month = Utils.GetFrenchMonth(english_month)
 
-        return(self.date.strftime(french_day + " le %d %B %Y"))
+        return(self.date.strftime(french_day + " le %d {0} %Y".format(french_month)))
 
     def GetPdDf(self):
         return(self.pd_df)
+
+    def GetSampleDate(self):
+        sample_date = MySQLcovid19Selector.GetSampleDate(MySQLcovid19.GetCursor(),self.sample.GetSampleName())
+        return(sample_date)
 
     @staticmethod
     def GetPercN_Quality_Score(perc_N):
@@ -320,6 +328,14 @@ class Utils():
         day_map = {"Monday": 'Lundi', 'Tuesday': 'Mardi', 'Wednesday': 'Mercredi', 'Thursday': 'Jeudi', 'Friday': 'Vendredi', 'Saturday': 'Samedi', 'Sunday': 'Dimanche'}
 
         return(day_map[english_day])
+
+    @staticmethod
+    def GetFrenchMonth(english_month):
+        month_map = {'January':'Janvier','February':'Février','March':'Mars','April':'Avril','May':'Mai','June':'Juin','Juillet':'July','August':'Août',
+                     'September':'Septembre','October':'Octobre','November':'Novembre','December':'Décembre'}
+
+        return(month_map[english_month])
+
 
     @staticmethod
     def ParseSampleDir(dir_name):
@@ -363,7 +379,7 @@ class MarkdownWriter(object):
     def GetInfo(cls,metric):
 
         sample_name_line = "### Identifiant de l'échantillon : {0} ".format("<span style=\"color:blue\">" + metric.GetSampleName() + "<span>")
-        sample_date_line = "### Date de collecte: {0} ".format("<span style=\"color:blue\">" + " a venir " + "</span>")
+        sample_date_line = "### Date de collecte: {0} ".format("<span style=\"color:blue\">" + metric.GetSampleDate() + "</span>")
         seq_tech_line = "### Technologie de séquencage: {0} ".format("<span style=\"color:blue\">" + metric.GetTech() + "</span>")
         seq_date = "### Date de séquencage: {0} ".format("<span style=\"color:blue\">" + metric.GetStrDate() + "</span>")
         seq_len = "### Longueur de séquence: {0} ".format("<span style=\"color:blue\">" + str(metric.GetSeqLen()) + "</span>")
@@ -475,6 +491,9 @@ def BuildSeqReports(plate_manager):
 
 
 def Main():
+
+    MySQLcovid19.SetConnection()
+
     global basedir
     basedir = PlateDirManager.GetBaseDir(_DEBUG)
    
